@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order API — Simulador de Pedidos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        <div class="logo">
+          <span class="logo-icon">📦</span>
+          <span class="logo-text">Order API</span>
+        </div>
+        <p class="subtitle">Simulador de Pedidos via RabbitMQ</p>
+      </div>
+
+      <form id="pedidoForm" class="form" novalidate>
+        <div class="form-group">
+          <label for="id">ID do Pedido</label>
+          <input
+            type="text"
+            id="id"
+            name="id"
+            placeholder="Ex: PED-001"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="cliente">Cliente</label>
+          <input
+            type="text"
+            id="cliente"
+            name="cliente"
+            placeholder="Nome do cliente"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="valor">Valor (R$)</label>
+          <input
+            type="number"
+            id="valor"
+            name="valor"
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+            required
+          />
+        </div>
+
+        <button type="submit" class="btn" id="submitBtn">
+          <span class="btn-text">Enviar Pedido</span>
+          <span class="btn-spinner hidden" aria-hidden="true"></span>
+        </button>
+      </form>
+
+      <div id="feedback" class="feedback hidden" role="alert"></div>
+
+      <div class="history-section">
+        <h3 class="history-title">Pedidos Enviados</h3>
+        <ul id="historyList" class="history-list">
+          <li class="history-empty">Nenhum pedido enviado ainda.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('pedidoForm');
+    const feedback = document.getElementById('feedback');
+    const historyList = document.getElementById('historyList');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnSpinner = submitBtn.querySelector('.btn-spinner');
+
+    function showFeedback(message, type) {
+      feedback.textContent = message;
+      feedback.className = `feedback ${type}`;
+      feedback.classList.remove('hidden');
+      setTimeout(() => feedback.classList.add('hidden'), 5000);
+    }
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      btnText.textContent = loading ? 'Enviando...' : 'Enviar Pedido';
+      btnSpinner.classList.toggle('hidden', !loading);
+    }
+
+    function addToHistory(pedido) {
+      const empty = historyList.querySelector('.history-empty');
+      if (empty) empty.remove();
+
+      const item = document.createElement('li');
+      item.className = 'history-item';
+      item.innerHTML = `
+        <span class="history-id">#${pedido.id}</span>
+        <span class="history-cliente">${pedido.cliente}</span>
+        <span class="history-valor">R$ ${parseFloat(pedido.valor).toFixed(2)}</span>
+        <span class="history-badge">Enviado</span>
+      `;
+      historyList.prepend(item);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById('id').value.trim();
+      const cliente = document.getElementById('cliente').value.trim();
+      const valor = document.getElementById('valor').value.trim();
+
+      if (!id || !cliente || !valor) {
+        showFeedback('Preencha todos os campos antes de enviar.', 'error');
+        return;
+      }
+
+      const pedido = { id, cliente, valor: parseFloat(valor) };
+      setLoading(true);
+
+      try {
+        const response = await fetch('/pedido', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pedido),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showFeedback(data.mensagem, 'success');
+          addToHistory(pedido);
+          form.reset();
+        } else {
+          showFeedback('Erro ao enviar pedido. Tente novamente.', 'error');
+        }
+      } catch (err) {
+        showFeedback('Não foi possível conectar ao servidor.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+</html>
